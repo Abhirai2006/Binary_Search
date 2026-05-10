@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Search Visualizer | Pro</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg: #030712;
+            --glass: rgba(17, 24, 39, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+            --primary: #818cf8;
+            --accent: #22d3ee;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #f43f5e;
+            --text: #f1f5f9;
+        }
+
+        * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0; height: 100vh; width: 100vw;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; padding: 2vh;
+            position: relative;
+        }
+
+        #cursor-glow {
+            position: fixed;
+            top: 0; left: 0;
+            width: 55vmax; height: 55vmax;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: -1;
+        }
+
+        .container {
+            width: 100%; max-width: 1200px; height: 96vh;
+            display: grid; grid-template-rows: auto 1fr auto; gap: 2vh;
+            perspective: 1200px;
+            z-index: 10;
+        }
+
+        .glass {
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2vh 2.5vw;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            transition: transform 0.1s ease-out;
+        }
+
+        .header { display: flex; align-items: center; justify-content: space-between; gap: 30px; }
+        .title { font-size: 1.4rem; font-weight: 800; background: linear-gradient(to right, #818cf8, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; white-space: nowrap; }
+        
+        .controls { display: flex; gap: 15px; flex: 1; align-items: center; }
+        .input-wrapper { display: flex; align-items: center; gap: 10px; flex: 1; }
+        input {
+            background: rgba(0,0,0,0.4); border: 1px solid var(--border);
+            color: white; padding: 10px 15px; border-radius: 12px; font-size: 0.9rem; outline: none; width: 100%;
+        }
+        input:focus { border-color: var(--primary); }
+        .target-input { width: 80px !important; }
+
+        button {
+            padding: 10px 24px; border-radius: 12px; border: none;
+            font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.85rem; white-space: nowrap;
+        }
+        #btn-prep { background: #f1f5f9; color: #020617; }
+        #btn-next { background: var(--primary); color: white; }
+        button:disabled { opacity: 0.2; }
+
+        .stage { display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; }
+        .array-row { display: flex; gap: 1vw; margin-bottom: 2.5vh; flex-wrap: wrap; justify-content: center; }
+        
+        .cell { display: flex; flex-direction: column; align-items: center; width: 55px; }
+        .box {
+            width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            border-radius: 14px; font-weight: 700; font-size: 1.1rem; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .box.active { border-color: var(--primary); background: rgba(129, 140, 248, 0.1); }
+        .box.dim { opacity: 0.1; transform: scale(0.9); }
+        .box.is-mid { background: var(--primary); color: white; border: none; box-shadow: 0 0 20px var(--primary); }
+        .box.is-found { background: var(--success); color: white; transform: scale(1.15); box-shadow: 0 0 40px var(--success); }
+
+        .tag-row { display: flex; flex-direction: column; gap: 2px; height: 50px; margin-top: 10px; width: 100%; }
+        .tag { font-size: 9px; font-weight: 900; text-align: center; opacity: 0; border-radius: 4px; padding: 2px 0; transition: 0.3s; }
+        .tag.active { opacity: 1; }
+        .tag-low { background: var(--accent); color: #000; }
+        .tag-mid { background: var(--success); color: #000; }
+        .tag-high { background: var(--warning); color: #000; }
+
+        .lower-grid { display: grid; grid-template-columns: 280px 1fr 320px; gap: 2vh; height: 28vh; }
+        .panel-label { font-size: 0.65rem; color: #64748b; font-weight: 800; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase; }
+
+        .gauge-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 10px; margin: 12px 0 5px; overflow: hidden; }
+        #gauge-fill { height: 100%; width: 100%; background: var(--accent); transition: width 0.6s ease; }
+
+        .code-window { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #94a3b8; }
+        .line { padding: 2px 10px; border-radius: 4px; border-left: 3px solid transparent; }
+        .line.highlight { background: rgba(129, 140, 248, 0.15); color: var(--primary); border-left-color: var(--primary); }
+
+        .log-box { height: 100%; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: #64748b; }
+        .log-entry { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+        .signature {
+            position: absolute;
+            bottom: 1vh;
+            right: 2vw;
+            font-size: 0.65rem;
+            color: rgba(148, 163, 184, 0.15);
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            pointer-events: none;
+            z-index: 100;
+            transition: all 0.5s ease;
+        }
+
+        .signature.nearby {
+            color: rgba(129, 140, 248, 0.8);
+            text-shadow: 0 0 10px rgba(129, 140, 248, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+<div id="cursor-glow"></div>
+<div class="signature" id="sig">Made by Abhirai</div>
+
+<div class="container" id="main-container">
+    <div class="glass header">
+        <div class="title">Binary Search Visualizer</div>
+        <div class="controls">
+            <div class="input-wrapper">
+                <input type="text" id="arr-in" value="10, 25, 30, 45, 50, 62, 70, 88, 95" placeholder="Sorted Array (comma separated)">
+                <input type="number" id="key-in" value="70" class="target-input" placeholder="Key">
+            </div>
+            <button id="btn-prep">Prepare</button>
+            <button id="btn-next" disabled>Next Step</button>
+        </div>
+    </div>
+
+    <div class="glass stage">
+        <div class="array-row" id="viz"></div>
+        <div id="msg" style="font-weight: 700; color: var(--primary); font-size: 1.2rem; text-align: center;">Ready for search sequence</div>
+    </div>
+
+    <div class="lower-grid">
+        <div class="glass">
+            <div class="panel-label">Complexity Analysis</div>
+            <div style="font-family: 'JetBrains Mono'; font-size: 0.9rem; color: var(--accent);">Worst Case: O(log n)</div>
+            <div style="font-family: 'JetBrains Mono'; font-size: 0.9rem; color: var(--accent);">Steps Taken: <span id="step-count">0</span></div>
+            <div class="gauge-bar"><div id="gauge-fill"></div></div>
+            <div id="gauge-text" style="font-size: 0.7rem; color: #64748b; text-align: right;">100% data active</div>
+        </div>
+
+        <div class="glass code-window">
+            <div class="panel-label">Live Execution</div>
+            <div class="line" id="code-1">while (low <= high) {</div>
+            <div class="line" id="code-2">&nbsp;&nbsp;mid = Math.floor((low + high) / 2);</div>
+            <div class="line" id="code-3">&nbsp;&nbsp;if (arr[mid] === target) return mid;</div>
+            <div class="line" id="code-4">&nbsp;&nbsp;else if (arr[mid] < target) low = mid + 1;</div>
+            <div class="line" id="code-5">&nbsp;&nbsp;else high = mid - 1;</div>
+            <div class="line" id="code-6">}</div>
+        </div>
+
+        <div class="glass">
+            <div class="panel-label">Event Log</div>
+            <div class="log-box" id="log"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const glow = document.getElementById('cursor-glow');
+    const panels = document.querySelectorAll('.glass');
+    const sig = document.getElementById('sig');
+
+    // --- Mouse Parallax & Signature detection ---
+    document.addEventListener('mousemove', (e) => {
+        glow.style.left = e.clientX + 'px';
+        glow.style.top = e.clientY + 'px';
+
+        const xAxis = (window.innerWidth / 2 - e.clientX) / 85;
+        const yAxis = (window.innerHeight / 2 - e.clientY) / 85;
+        panels.forEach(p => p.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`);
+
+        const sigRect = sig.getBoundingClientRect();
+        const dist = Math.sqrt(Math.pow(e.clientX - (sigRect.left + sigRect.width/2), 2) + Math.pow(e.clientY - (sigRect.top + sigRect.height/2), 2));
+        dist < 200 ? sig.classList.add('nearby') : sig.classList.remove('nearby');
+    });
+
+    // Handle Enter Key
+    document.addEventListener('keydown', (e) => { if(e.key === 'Enter') document.getElementById('btn-prep').click(); });
+
+    // --- Sound Engine ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq, type, duration) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    let array = [], target = null, steps = [], current = -1;
+
+    document.getElementById('btn-prep').onclick = () => {
+        const rawArr = document.getElementById('arr-in').value;
+        if(!rawArr.trim()) return;
+
+        audioCtx.resume();
+        playTone(440, 'sine', 0.2);
+        
+        array = rawArr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n)).sort((a,b)=>a-b);
+        target = parseInt(document.getElementById('key-in').value);
+        
+        const viz = document.getElementById('viz');
+        viz.innerHTML = '';
+        array.forEach((v, i) => {
+            viz.innerHTML += `<div class="cell">
+                <div style="font-size: 10px; color:#64748b; margin-bottom:5px;">${i}</div>
+                <div class="box" id="box-${i}">${v}</div>
+                <div class="tag-row">
+                    <div class="tag tag-low" id="l-${i}">LOW</div>
+                    <div class="tag tag-mid" id="m-${i}">MID</div>
+                    <div class="tag tag-high" id="h-${i}">HIGH</div>
+                </div>
+            </div>`;
+        });
+
+        calculate();
+        current = -1;
+        document.getElementById('btn-next').disabled = false;
+        document.getElementById('log').innerHTML = '';
+        document.getElementById('step-count').innerText = '0';
+        document.getElementById('gauge-fill').style.width = '100%';
+        document.getElementById('gauge-text').innerText = '100% data active';
+        document.getElementById('msg').innerText = "Sequence prepared for Key: " + target;
+        document.getElementById('msg').style.color = "var(--primary)";
+        document.querySelectorAll('.line').forEach(l => l.classList.remove('highlight'));
+    };
+
+    function calculate() {
+        steps = [];
+        let l = 0, h = array.length - 1;
+        while (l <= h) {
+            let m = Math.floor((l + h) / 2);
+            let val = array[m];
+            let s = { l, h, m, val };
+            if (val === target) { s.res = "FOUND"; steps.push(s); break; }
+            else if (val < target) { s.res = "RIGHT"; steps.push(s); l = m + 1; }
+            else { s.res = "LEFT"; steps.push(s); h = m - 1; }
+        }
+        if (steps.length === 0 || steps[steps.length-1].val !== target) steps.push({res: "FAIL"});
+    }
+
+    document.getElementById('btn-next').onclick = () => {
+        current++;
+        const s = steps[current];
+        if (!s) return;
+
+        document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.box').forEach(b => b.classList.remove('is-mid', 'is-found'));
+        document.querySelectorAll('.line').forEach(l => l.classList.remove('highlight'));
+
+        if (s.res === "FAIL") {
+            playTone(150, 'sawtooth', 0.5);
+            document.getElementById('msg').innerText = "Element NOT FOUND in array.";
+            document.getElementById('msg').style.color = "var(--danger)";
+            document.getElementById('btn-next').disabled = true;
+            return;
+        }
+
+        document.getElementById('code-1').classList.add('highlight');
+        document.getElementById('code-2').classList.add('highlight');
+        
+        document.getElementById(`l-${s.l}`).classList.add('active');
+        document.getElementById(`m-${s.m}`).classList.add('active');
+        document.getElementById(`h-${s.h}`).classList.add('active');
+
+        array.forEach((_, i) => {
+            const b = document.getElementById(`box-${i}`);
+            b.className = 'box';
+            if (i >= s.l && i <= s.h) b.classList.add('active');
+            else b.classList.add('dim');
+            if (i === s.m) b.classList.add(s.res === "FOUND" ? 'is-found' : 'is-mid');
+        });
+
+        document.getElementById('step-count').innerText = current + 1;
+        const remaining = Math.round(((s.h - s.l + 1) / array.length) * 100);
+        document.getElementById('gauge-fill').style.width = remaining + '%';
+        document.getElementById('gauge-text').innerText = remaining + '% search space remaining';
+
+        if (s.res === "FOUND") {
+            playTone(880, 'sine', 0.5);
+            document.getElementById('code-3').classList.add('highlight');
+            document.getElementById('msg').innerText = "SUCCESS: Found " + target + " at index " + s.m;
+            document.getElementById('msg').style.color = "var(--success)";
+            document.getElementById('btn-next').disabled = true;
+        } else {
+            playTone(300 + (current * 50), 'sine', 0.1);
+            document.getElementById(s.res === "RIGHT" ? 'code-4' : 'code-5').classList.add('highlight');
+            document.getElementById('msg').innerText = s.res === "RIGHT" ? "Target is Greater" : "Target is Smaller";
+        }
+
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<b>Step ${current+1}:</b> Range [${s.l}-${s.h}], Mid ${s.m} (${s.val})`;
+        document.getElementById('log').prepend(entry);
+    };
+</script>
+</body>
+</html>
