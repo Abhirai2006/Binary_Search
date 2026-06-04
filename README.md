@@ -38,8 +38,7 @@ A high-performance, modern Binary Search visualizer designed for DAA (Design and
 
 ## 👤 Author
 
-**Abhishek Rai A (Abhirai2006)** 
-
+**Abhishek Rai A** [**(Abhirai2006)**](https://github.com/Abhirai2006)
 * [Project Link](https://binarysearch-abhirai.netlify.app/)
 
 ---
